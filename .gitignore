@@ -1,0 +1,20 @@
+
+# Ignore Docker-related files
+docker/consul/data/
+docker/vault/data/
+docker/vault/config/init.json
+docker/vault/config/root_token.txt
+
+# Ignore TLS certificates
+docker/vault/tls/*.key
+docker/vault/tls/*.pem
+docker/vault/tls/*.crt
+docker/vault/tls/*.srl
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore VS Code workspace settings
+.vscode/
+*.code-workspace

@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  consul:
+    image: consul:1.15
+    container_name: consul
+    volumes:
+      - ./docker/consul/config:/consul/config
+      - ./docker/consul/data:/consul/data
+    ports:
+      - "8500:8500"
+    networks:
+      - vaultnet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  vault:
+    build:
+      context: ./docker/vault
+    container_name: vault
+    volumes:
+      - ./docker/vault/config:/vault/config
+      # - ./docker/vault/tls:/vault/tls
+      - ./docker/vault/data:/vault/data
+      - ./docker/vault/init-unseal.sh:/vault/init-unseal.sh
+      - ./docker/vault/entrypoint.sh:/vault/entrypoint.sh
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_LOCAL_CONFIG: |
+        {
+          "listener": [{
+            "tcp": {
+              "address": "0.0.0.0:8200",
+              "tls_disable": true
+            }
+          }],
+          "ui": true,
+          "storage": {
+            "consul": {
+              "address": "http://consul:8500",
+              "path": "vault/"
+            }
+          },
+          "api_addr": "http://vault:8200",
+          "disable_mlock": true
+        }
+      VAULT_ADDR: "http://localhost:8200"
+      VAULT_SKIP_VERIFY: "true"
+    # entrypoint: ["/bin/sh", "/vault/entrypoint.sh"]
+    command: ["/bin/sh", "-c", "chmod +x /vault/init-unseal.sh && vault server -config=/vault/config/vault.hcl"]
+    depends_on:
+      consul:
+        condition: service_healthy
+    networks:
+      - vaultnet
+
+networks:
+  vaultnet:
+    driver: bridge
