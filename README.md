@@ -18,6 +18,15 @@ This repository provides a production-ready Docker-based setup for running Hashi
     - [3. Access the Services](#3-access-the-services)
     - [4. Get Your Root Token](#4-get-your-root-token)
     - [5. Verify Setup](#5-verify-setup)
+  - [Security Setup](#security-setup)
+    - [Admin User Setup](#admin-user-setup)
+    - [Using Admin Credentials](#using-admin-credentials)
+    - [Root Token Management](#root-token-management)
+  - [Operational Scripts](#operational-scripts)
+    - [Health Monitoring](#health-monitoring)
+    - [Backup Management](#backup-management)
+    - [Testing Suite](#testing-suite)
+    - [Automated Operations](#automated-operations)
   - [Architecture](#architecture)
   - [Configuration](#configuration)
     - [Vault Configuration (`docker/vault/config/vault.hcl`)](#vault-configuration-dockervaultconfigvaulthcl)
@@ -45,7 +54,11 @@ This repository provides a production-ready Docker-based setup for running Hashi
 - **🔓 Auto-Unsealing**: Automatic unsealing on container restarts
 - **📊 Management UIs**: Web interfaces for both Vault and Consul
 - **🔄 State Persistence**: Root tokens and unseal keys persist across restarts
-- **🛠️ Development Ready**: Perfect for local development and testing
+- **�️ Security Policies**: Role-based access control with admin user management
+- **📈 Health Monitoring**: Automated health checks and logging
+- **💾 Backup System**: Consistent backup creation and management
+- **🧪 Test Suite**: Comprehensive testing for validation and troubleshooting
+- **�🛠️ Development Ready**: Perfect for local development and testing
 
 ## Prerequisites
 
@@ -66,10 +79,10 @@ cd vault-consul-docker-setup
 
 ```sh
 # Start Vault and Consul
-docker-compose up --build -d
+docker compose up --build -d
 
 # Watch the initialization process
-docker-compose logs -f vault
+docker compose logs -f vault
 ```
 
 ### 3. Access the Services
@@ -81,24 +94,168 @@ docker-compose logs -f vault
 
 ```sh
 # The root token is automatically saved and displayed in logs
-docker-compose logs vault | grep "Root Token"
+docker compose logs vault | grep "Root Token"
 
 # Or retrieve it from the saved file
-docker-compose exec vault cat /vault/data/root_token.txt
+docker compose exec vault cat /vault/data/root_token.txt
 ```
 
 ### 5. Verify Setup
 
 ```sh
 # Check Vault status
-docker-compose exec vault vault status
+docker compose exec vault vault status
 
 # Vault should show as "Initialized: true" and "Sealed: false"
 ```
 
+## Security Setup
+
+**⚠️ IMPORTANT**: After initial setup, follow these security best practices to secure your Vault deployment.
+
+### Admin User Setup
+
+Once Vault is running, create admin users instead of using the root token for daily operations:
+
+```sh
+# Navigate to your vault directory
+cd /path/to/vault-consul-docker-setup
+
+# Set Vault environment
+export VAULT_ADDR="http://localhost:8200"
+export VAULT_TOKEN=$(cat ./docker/vault/data/root_token.txt)
+
+# Run the admin setup script
+./setup-admin-users.sh
+```
+
+The setup script will:
+
+- ✅ Create an admin policy with near-root privileges
+- ✅ Enable userpass authentication
+- ✅ Create an admin user with secure credentials
+- ✅ Test the admin user login
+- ✅ Save admin token for convenience
+
+**What the admin policy allows:**
+
+- Full access to secrets, policies, and auth methods
+- Secret engine and auth method management
+- Policy management
+
+**What the admin policy restricts:**
+
+- ❌ Root token generation (`sys/generate-root/*`)
+- ❌ Direct unseal key access (`sys/unseal`)
+
+### Using Admin Credentials
+
+After setup, use admin credentials instead of root token:
+
+```sh
+# Login with admin user
+export VAULT_ADDR="http://localhost:8200"
+vault login -method=userpass username=your-admin-user
+
+# Or use the saved admin token
+export VAULT_TOKEN=$(cat ./docker/vault/data/admin_token.txt)
+vault login -method=token
+```
+
+### Root Token Management
+
+After confirming admin access works:
+
+```sh
+# Test admin access thoroughly first
+vault secrets list
+vault auth list
+vault policy list
+
+# Optional: Revoke root token (only if you're confident)
+vault token revoke $(cat ./docker/vault/data/root_token.txt)
+```
+
+**🚨 WARNING**: Only revoke the root token after:
+
+1. ✅ Testing admin user login works
+2. ✅ Verifying admin can perform all needed operations
+3. ✅ Backing up root token securely
+4. ✅ Having emergency recovery procedures
+
+For detailed security guidance, see [SECURITY.md](SECURITY.md).
+
+## Operational Scripts
+
+This setup includes several operational scripts for managing your Vault deployment:
+
+### Health Monitoring
+
+Monitor Vault and Consul health automatically:
+
+```sh
+# Run health check manually
+./health-check.sh
+
+# Check health logs
+tail -f /var/log/vault-health.log
+# or if local log is used:
+tail -f ./vault-health.log
+```
+
+### Backup Management
+
+Create consistent backups of your Vault data:
+
+```sh
+# Create backup manually
+./backup-vault.sh
+
+# List backups
+ls -la /opt/vault/backups/
+
+# Check backup contents
+tar -tzf /opt/vault/backups/vault_backup_*.tar.gz | head -10
+```
+
+### Testing Suite
+
+Run comprehensive tests to validate your setup:
+
+```sh
+# Run complete test suite
+./test-persistence.sh
+
+# This tests:
+# ✅ Service health and status
+# ✅ Health check script functionality
+# ✅ Backup creation and restoration
+# ✅ Log file creation and permissions
+# ✅ Error scenario handling
+```
+
+### Automated Operations
+
+Set up automated health monitoring and backups:
+
+```sh
+# Edit crontab for automated operations
+crontab -e
+
+# Add these lines:
+# Health check every 5 minutes
+*/5 * * * * /opt/vault/docker-vault-consul/health-check.sh
+
+# Backup weekly on Sundays at 2 AM
+0 2 * * 0 /opt/vault/docker-vault-consul/backup-vault.sh
+
+# Cleanup old backups monthly
+0 3 1 * * find /opt/vault/backups -name "vault_backup_*.tar.gz" -mtime +30 -delete
+```
+
 ## Architecture
 
-```
+```text
 ┌─────────────────┐    ┌─────────────────┐
 │     Vault       │    │     Consul      │
 │   (Port 8200)   │◄──►│   (Port 8500)   │
@@ -119,6 +276,37 @@ docker-compose exec vault vault status
 - **Consul Container**: Provides persistent storage backend for Vault
 - **Volume Mounts**: Ensure data persistence across container restarts
 - **Auto-Init Script**: Handles initialization and unsealing automatically
+
+### Project Structure
+
+```text
+vault-consul-docker-setup/
+├── docker-compose.yml              # Service orchestration
+├── setup-admin-users.sh            # Admin user creation script
+├── backup-vault.sh                 # Backup creation script
+├── health-check.sh                 # Health monitoring script
+├── test-persistence.sh             # Comprehensive test suite
+├── README.md                       # This documentation
+├── SECURITY.md                     # Security best practices
+├── docker/
+│   ├── consul/
+│   │   ├── config/consul.hcl       # Consul configuration
+│   │   └── data/                   # Consul persistent data
+│   └── vault/
+│       ├── config/vault.hcl        # Vault configuration
+│       ├── data/                   # Vault persistent data
+│       ├── Dockerfile              # Custom Vault image
+│       └── init-unseal.sh          # Vault initialization script
+├── policies/                       # Vault access policies
+│   ├── admin-policy.hcl
+│   ├── developer-policy.hcl
+│   └── production-operator-policy.hcl
+├── logs/                          # Application logs
+│   ├── vault/
+│   └── consul/
+└── docs/
+    └── APPLICATION-INTEGRATION.md  # Integration examples
+```
 
 ## Configuration
 
@@ -208,10 +396,10 @@ For production, consider:
 
    ```sh
    # Check if auto-unseal is working
-   docker-compose logs vault
+   docker compose logs vault
 
    # Manual unseal if needed
-   docker-compose exec vault sh /vault/init-unseal.sh
+   docker compose exec vault sh /vault/init-unseal.sh
    ```
 
 2. **Permission denied errors**
@@ -225,31 +413,47 @@ For production, consider:
 
    ```sh
    # Verify volume mounts
-   docker-compose exec consul ls -la /consul/data
+   docker compose exec consul ls -la /consul/data
    ```
 
 4. **New root token generated on restart**
 
    ```sh
    # Check Consul connectivity from Vault
-   docker-compose exec vault curl http://consul:8500/v1/kv/vault/?keys
+   docker compose exec vault curl http://consul:8500/v1/kv/vault/?keys
+   ```
+
+5. **Docker Compose command not found**
+
+   ```sh
+   # If using older Docker, try legacy command
+   docker-compose --version
+
+   # Or install Docker Compose v2
+   sudo apt-get update && sudo apt-get install docker-compose-plugin
    ```
 
 ### Logs and Debugging
 
 ```sh
 # View all logs
-docker-compose logs
+docker compose logs
 
 # Follow specific service logs
-docker-compose logs -f vault
-docker-compose logs -f consul
+docker compose logs -f vault
+docker compose logs -f consul
 
 # Check Vault status
-docker-compose exec vault vault status
+docker compose exec vault vault status
 
 # Check Consul cluster
-docker-compose exec consul consul members
+docker compose exec consul consul members
+
+# Run health check
+./health-check.sh
+
+# Run comprehensive tests
+./test-persistence.sh
 ```
 
 ## Secret Migration
@@ -311,11 +515,14 @@ git clone https://github.com/yourusername/vault-consul-docker-setup.git
 git checkout -b feature/your-feature
 
 # Test your changes
-docker-compose up --build -d
-docker-compose logs -f
+docker compose up --build -d
+docker compose logs -f
+
+# Run test suite
+./test-persistence.sh
 
 # Clean up
-docker-compose down -v
+docker compose down -v
 ```
 
 ## License

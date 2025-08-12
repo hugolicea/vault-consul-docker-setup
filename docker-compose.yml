@@ -5,6 +5,7 @@ services:
     volumes:
       - ./docker/consul/config:/consul/config
       - ./docker/consul/data:/consul/data
+      - ./logs/consul:/consul/logs
     ports:
       - "8500:8500"
     environment:
@@ -15,6 +16,12 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
     networks:
       - vaultnet
 
@@ -28,6 +35,7 @@ services:
       - ./docker/vault/data:/vault/data
       - ./docker/vault/init-unseal.sh:/vault/init-unseal.sh
       - ./docker/vault/entrypoint.sh:/vault/entrypoint.sh
+      - ./logs/vault:/vault/logs
     ports:
       - "8200:8200"
     cap_add:
@@ -56,6 +64,18 @@ services:
     depends_on:
       consul:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     networks:
       - vaultnet
 
