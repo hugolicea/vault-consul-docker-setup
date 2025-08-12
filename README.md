@@ -1,5 +1,5 @@
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![Version](https://img.shields.io/github/v/release/hugolicea/vault-consul-docker-setup)
+![Version](https://img.shields.io/badge/version-v1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 # Vault + Consul Docker Setup
