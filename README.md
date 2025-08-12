@@ -28,6 +28,7 @@ This repository provides a production-ready Docker-based setup for running Hashi
     - [Testing Suite](#testing-suite)
     - [Automated Operations](#automated-operations)
   - [Architecture](#architecture)
+    - [Project Structure](#project-structure)
   - [Configuration](#configuration)
     - [Vault Configuration (`docker/vault/config/vault.hcl`)](#vault-configuration-dockervaultconfigvaulthcl)
     - [Consul Configuration (`docker/consul/config/consul.hcl`)](#consul-configuration-dockerconsulconfigconsulhcl)
@@ -35,6 +36,7 @@ This repository provides a production-ready Docker-based setup for running Hashi
   - [Production Considerations](#production-considerations)
     - [Security Enhancements](#security-enhancements)
     - [Alternative Storage Backends](#alternative-storage-backends)
+  - [Data Protection](#data-protection)
   - [Troubleshooting](#troubleshooting)
     - [Common Issues](#common-issues)
     - [Logs and Debugging](#logs-and-debugging)
@@ -387,6 +389,21 @@ For production, consider:
 - **Integrated Storage (Raft)**: Simpler, no external dependencies
 - **Cloud Storage**: AWS DynamoDB, GCS, Azure Storage
 - **Database**: PostgreSQL, MySQL (not recommended for high throughput)
+
+## Data Protection
+
+⚠️ **Critical: Protecting Your Vault Data**
+
+Your Vault data is stored in local directories and contains all your secrets. Please review our comprehensive data protection guide:
+
+📖 **[Data Protection Guide](DATA-PROTECTION.md)** - Essential reading for safe operations
+
+Key points:
+
+- **Safe Commands**: `docker compose logs`, `docker compose ps`, health checks
+- **Dangerous Commands**: `docker compose down -v`, `docker system prune`, volume operations
+- **Emergency Recovery**: Backup verification and restore procedures
+- **Best Practices**: Regular backups, testing, monitoring
 
 ## Troubleshooting
 
